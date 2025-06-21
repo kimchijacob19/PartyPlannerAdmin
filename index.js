@@ -1,6 +1,6 @@
 // === Constants ===
 const BASE = "https://fsa-crud-2aa9294fe819.herokuapp.com/api";
-const COHORT = ""; // Make sure to change this!
+const COHORT = "/2109-CPU-RM-WEB-PT";
 const API = BASE + COHORT;
 
 // === State ===
@@ -59,7 +59,6 @@ async function getGuests() {
 
 // === Components ===
 
-/** Party name that shows more details about the party when clicked */
 function PartyListItem(party) {
   const $li = document.createElement("li");
 
@@ -74,18 +73,16 @@ function PartyListItem(party) {
   return $li;
 }
 
-/** A list of names of all parties */
 function PartyList() {
   const $ul = document.createElement("ul");
   $ul.classList.add("parties");
 
-  const $parties = parties.map(PartyListItem);
+  const $parties = (parties ?? []).map(PartyListItem);
   $ul.replaceChildren(...$parties);
 
   return $ul;
 }
 
-/** Detailed information about the selected party */
 function SelectedParty() {
   if (!selectedParty) {
     const $p = document.createElement("p");
@@ -101,14 +98,18 @@ function SelectedParty() {
     </time>
     <address>${selectedParty.location}</address>
     <p>${selectedParty.description}</p>
+    <button id="delete-btn">Delete This Party</button>
     <GuestList></GuestList>
   `;
+
+  $party
+    .querySelector("#delete-btn")
+    .addEventListener("click", () => handleDeleteParty(selectedParty.id));
   $party.querySelector("GuestList").replaceWith(GuestList());
 
   return $party;
 }
 
-/** List of guests attending the selected party */
 function GuestList() {
   const $ul = document.createElement("ul");
   const guestsAtParty = guests.filter((guest) =>
@@ -117,7 +118,6 @@ function GuestList() {
     )
   );
 
-  // Simple components can also be created anonymously:
   const $guests = guestsAtParty.map((guest) => {
     const $guest = document.createElement("li");
     $guest.textContent = guest.name;
@@ -126,6 +126,71 @@ function GuestList() {
   $ul.replaceChildren(...$guests);
 
   return $ul;
+}
+
+function NewPartyForm() {
+  const $form = document.createElement("form");
+
+  $form.innerHTML = `
+    <h2>Create a New Party</h2>
+    <label>
+      Name:
+      <input type="text" name="name" required />
+    </label>
+    <label>
+      Date:
+      <input type="date" name="date" required />
+    </label>
+    <label>
+      Location:
+      <input type="text" name="location" required />
+    </label>
+    <label>
+      Description:
+      <input type="text" name="description" required />
+    </label>
+    <button type="submit">Add Party</button>
+  `;
+
+  $form.addEventListener("submit", handleAddParty);
+  return $form;
+}
+
+async function handleAddParty(event) {
+  event.preventDefault();
+  const form = event.target;
+
+  const newParty = {
+    name: form.name.value,
+    date: new Date(form.date.value).toISOString(),
+    location: form.location.value,
+    description: form.description.value,
+  };
+
+  try {
+    const response = await fetch(API + "/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newParty),
+    });
+
+    if (!response.ok) throw new Error("Failed to add party");
+
+    await getParties();
+    form.reset();
+  } catch (e) {
+    console.error("Add party error:", e);
+  }
+}
+
+async function handleDeleteParty(id) {
+  try {
+    await fetch(API + "/events/" + id, { method: "DELETE" });
+    selectedParty = null;
+    await getParties();
+  } catch (e) {
+    console.error("Delete error:", e);
+  }
 }
 
 // === Render ===
@@ -143,10 +208,12 @@ function render() {
         <SelectedParty></SelectedParty>
       </section>
     </main>
+    <NewPartyForm></NewPartyForm>
   `;
 
   $app.querySelector("PartyList").replaceWith(PartyList());
   $app.querySelector("SelectedParty").replaceWith(SelectedParty());
+  $app.querySelector("NewPartyForm").replaceWith(NewPartyForm());
 }
 
 async function init() {
